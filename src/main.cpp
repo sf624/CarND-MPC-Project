@@ -41,10 +41,10 @@ double polyeval(Eigen::VectorXd coeffs, double x) {
   return result;
 }
 
-double polydiff(double x, Eigen::VectorXd coeffs){
-  AD<double> ret = 0;
+double polydiff(Eigen::VectorXd coeffs, double x){
+  double ret = 0;
   for(int i=1; i<coeffs.size(); ++i){
-    ret += i * coeffs[i] * CppAD::pow(x, i-1);
+    ret += i * coeffs[i] * pow(x, i-1);
   }
   return ret;
 }
@@ -119,10 +119,10 @@ int main() {
           Eigen::VectorXd coeffs = polyfit(ptsx_v,ptsy_v,3);
 
           // Calculate cross track error and orientation error. (in vehicle coordinate)
-          double cte = polyeval(coeffs, 0);
-          double epsi = - atan(coeffs[1]);
+          double cte = polyeval(coeffs, v * 0.1);
+          double epsi = - atan(polydiff(coeffs, v * 0.1));
 
-          // Initialize state. Here, latency is added to the x value.
+          // Initialize state considering 0.1 sec latency.
           Eigen::VectorXd state(6);
           state << v * 0.1, 0, 0, v, cte, epsi;
 
