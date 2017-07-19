@@ -41,6 +41,14 @@ double polyeval(Eigen::VectorXd coeffs, double x) {
   return result;
 }
 
+double polydiff(double x, Eigen::VectorXd coeffs){
+  AD<double> ret = 0;
+  for(int i=1; i<coeffs.size(); ++i){
+    ret += i * coeffs[i] * CppAD::pow(x, i-1);
+  }
+  return ret;
+}
+
 // Fit a polynomial.
 // Adapted from
 // https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
@@ -101,15 +109,40 @@ int main() {
           double steer_value;
           double throttle_value;
 
+          // calculate waypoints in vehicle coordinate and fit them to 3rd oreder polynominal
+          Eigen::VectorXd ptsx_v(ptsx.size());
+          Eigen::VectorXd ptsy_v(ptsy.size());
+          for(int i=0;i<ptsx.size();++i){
+            ptsx_v(i) = cos(-psi) * (ptsx[i] - px) - sin(-psi) * (ptsy[i] - py);
+            ptsy_v(i) = sin(-psi) * (ptsx[i] - px) + cos(-psi) * (ptsy[i] - py);
+          }
+          Eigen::VectorXd coeffs = polyfit(ptsx_v,ptsy_v,3);
+
+          // Calculate cross track error and orientation error. (in vehicle coordinate)
+          double cte = polyeval(coeffs, 0);
+          double epsi = - atan(coeffs[1]);
+
+          // Initialize state. Here, latency is added to the x value.
+          Eigen::VectorXd state(6);
+          state << v * 0.1, 0, 0, v, cte, epsi;
+
+          vector<double> vars = mpc.Solve(state, coeffs);
+          steer_value = - vars[0] / deg2rad(25);
+          throttle_value = vars[1];
+
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
-          //Display the MPC predicted trajectory 
+          //Display the MPC predicted trajectory
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
+          for(int i=0; i<(vars.size()-2)/2; ++i){
+            mpc_x_vals.push_back(vars[2 + i*2]);
+            mpc_y_vals.push_back(vars[3 + i*2]);
+          }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
@@ -120,6 +153,10 @@ int main() {
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
+          for(int i=0; i<ptsx_v.size(); ++i){
+            next_x_vals.push_back(ptsx_v(i));
+            next_y_vals.push_back(polyeval(coeffs, ptsx_v(i)));
+          }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
