@@ -1,0 +1,33 @@
+I. Compilation
+i. Your code should compile.
+The code surely compile without error with "cmake .. && make" under build directory.
+
+II. Implementation
+i. The model
+Simple kinematic model was chosen.
+The transition equation is described as follows.
+Let L be  the distance between the front of the vehicle and its center of gravity, and delta be steering angle.
+
+x <- x + v * cos(psi) * dt
+y <- y + v * sin(psi) * dt
+psi <- psi + v/L * delta * dt
+v <- v + a * dt
+
+ii.Timestep Length and Elapsed Duration (N & dt)
+N is restricted to certain value so that the computation could be executed in real-time. (Here considering 0.1 sec latency.)
+
+Since the waypoints given from the simulator is restricted to certain distance from the vehicle, a product of N * dt is also restricted so that the MPC solver does not foresee too much distance. On the other hand the product should not be too small either in order not to make MPC estimate only short-range of time.
+
+With my environment (PC), N = 10 was moderate value where the PC could calculate in real-time. When dt = 0.4, the MPC need to calculate too long trajectory that could not produce valid solution. When dt = 0.1, the MPC yeilded oscilating solution. As a result, the combination of N = 10 and dt = 0.2 was chosen for my project.
+
+iii.Polynomial Fitting and MPC Preprocessing
+Polynominal was fitted to waypoints, after the waypoints' coordinate was converted to vehicle's frame in each time step. (main.cpp lines 112 - 119)
+
+In addition, MPC solution was reused as a initial guess of next MPC solver to produce consistent solution between different time step and avoid local minima. (MPC.cpp line 304)
+
+iv.Model Predictive Control with Latency
+Since MPC solver calculated in vehicle coordinate, simply (velocity * 0.1 sec) was chosen as initial x value to consider latency. This was also used to calculate initial cte and epsi.
+
+III.Simulation
+i.The vehicle must successfully drive a lap around the track.
+The vehicle successfully drive a lap autonomously by using MPC, at speed of 40mph.
